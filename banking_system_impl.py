@@ -64,12 +64,16 @@ class BankingSystemImpl(BankingSystem):
 
 
     # Level 2
-    def top_spenders(self, timestamp: int, n_var: int) -> list[str]:
+    def top_spenders(self, timestamp: int, num: int) -> list[str]:
         # sort self.spenders to get top spenders
         sorted_spenders = sorted(self.spenders.items(), key = lambda item: (-item[1], item[0])) # returns keys in alphabetical order
         top_n = [] # List of strings
-        #breakpoint()
-        for i in range(n_var):
+        
+        # It's supposed to be able to go out of range 
+        if num > len(sorted_spenders):
+            num = len(sorted_spenders)
+
+        for i in range(num):
             top_n.append(f"{sorted_spenders[i][0]}({sorted_spenders[i][1]})")
         
         # ["account1(50)"]
