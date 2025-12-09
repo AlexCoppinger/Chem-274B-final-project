@@ -1,10 +1,17 @@
 from abc import ABC
 
+class Account():
+    """
+    Account interface
+    """
+    def __init__(self, timestamp: int, account_id: str):
+        self.id = account_id # Add name for account
+        self.timestamp = timestamp # Add the timestamp
+        self.balance = 0 # Initialize with 0
 
 class BankingSystem(ABC):
-    """
-    `BankingSystem` interface.
-    """
+    def __init__(self):
+        self.accounts = {} # Make a set with the accounts
 
     def create_account(self, timestamp: int, account_id: str) -> bool:
         """
@@ -12,7 +19,7 @@ class BankingSystem(ABC):
         doesn't already exist.
         Returns `True` if the account was successfully created or
         `False` if an account with `account_id` already exists.
-        """
+        """        
         # default implementation
         return False
 
