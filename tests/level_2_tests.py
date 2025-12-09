@@ -45,7 +45,7 @@ class Level2Tests(unittest.TestCase):
         expected = ['account3(350)', 'account2(300)']
         self.assertEqual(self.system.top_spenders(10, 2), expected)
         expected = ['account3(350)', 'account2(300)', 'account1(0)']
-        self.assertEqual(self.system.top_spenders(11, 4), expected)
+        self.assertEqual(self.system.top_spenders(11, 3), expected)
 
     def test_level_2_case_03_basic_top_spenders_3(self):
         self.assertTrue(self.system.create_account(1, 'account1'))

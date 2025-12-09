@@ -8,10 +8,9 @@ class Account():
         self.id = account_id # Add name for account
         self.timestamp = timestamp # Add the timestamp
         self.balance = 0 # Initialize with 0
+        self.highest_transaction = [] # Highest transaction 
 
 class BankingSystem(ABC):
-    def __init__(self):
-        self.accounts = {} # Make a set with the accounts
 
     def create_account(self, timestamp: int, account_id: str) -> bool:
         """
