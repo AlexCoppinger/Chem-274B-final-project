@@ -68,7 +68,7 @@ class BankingSystemImpl(BankingSystem):
         # sort self.spenders to get top spenders
         sorted_spenders = sorted(self.spenders.items(), key = lambda item: (-item[1], item[0])) # returns keys in alphabetical order
         top_n = [] # List of strings
-        breakpoint()
+        #breakpoint()
         for i in range(n_var):
             top_n.append(f"{sorted_spenders[i][0]}({sorted_spenders[i][1]})")
         
