@@ -3,10 +3,32 @@ from banking_system import BankingSystem, Account
 class BankingSystemImpl(BankingSystem):
 
     def __init__(self):
-        self.accounts = {} # Make a set with the accounts
+        self.accounts = {} # Make a set with the accounts. Key is account_id and it returns account value
         self.spenders = {} # Make a dictionary with spenders
+        self.payments = {} # Make dictionary for payments where the key is the transaction string, and value is list of ['timestamp', 'account', 'payment_amount']
+    
+
+    def check_payments(func):
+        """
+        Payment decorator that checks at every step
+        """
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            # [timestamp, account_id, amount, False]
+            for payment in self.payments:
+                # args[1] should be timestamp for all methods
+                # If the time is larger than 24 hours later and the last element is false (a payment was not made)
+                if args[1] >= (self.payments[payment][0] + 86400000) and self.payments[payment][-1] == False:
+                    # We know the payment has been made
+                    cashback = int(self.payments[payment][2] * 0.02)
+                    self.payments[payment][-1] = True
+                    self.deposit((self.payments[payment][0] + 86400000), self.payments[payment][1], cashback)
+                    
+            return func(*args, **kwargs)
+        return wrapper
 
     # Level 1
+    @check_payments
     def create_account(self, timestamp: int, account_id: str) -> bool:
         if account_id in self.accounts:
           return False
@@ -18,6 +40,7 @@ class BankingSystemImpl(BankingSystem):
         return True
 
     # Level 1
+    @check_payments
     def deposit(self, timestamp, account_id, amount):
 
         if account_id not in self.accounts: # If the account doesn't exist within the dictionary
@@ -33,6 +56,7 @@ class BankingSystemImpl(BankingSystem):
         return account.balance
     
     # Level 
+    @check_payments
     def transfer(self, timestamp, source_account_id, target_account_id, amount):
         # Check if account keys exist:
         if source_account_id not in self.accounts: # If the account doesn't exist within the dictionary
@@ -64,6 +88,7 @@ class BankingSystemImpl(BankingSystem):
 
 
     # Level 2
+    @check_payments
     def top_spenders(self, timestamp: int, num: int) -> list[str]:
         # sort self.spenders to get top spenders
         sorted_spenders = sorted(self.spenders.items(), key = lambda item: (-item[1], item[0])) # returns keys in alphabetical order
@@ -76,28 +101,54 @@ class BankingSystemImpl(BankingSystem):
         for i in range(num):
             top_n.append(f"{sorted_spenders[i][0]}({sorted_spenders[i][1]})")
         
-        # ["account1(50)"]
         return top_n
+    
+    # Level 3
+    @check_payments
+    def pay(self, timestamp: int, account_id: str, amount: int) -> str | None:
+        count = 1 + len(self.payments) # Return the number of payments made in the system for the payment name
+        pay_id = f"payment{count}"
+        
+        # Checks if the account exists or if the amount is too low
+        if account_id not in self.accounts or self.accounts[account_id].balance < amount:
+            return None
+        
+        # There is always an account (initialized with 0 in create_accounts)
+        # Adding the amount withdrawn from self.spenders[]
+        self.spenders[account_id] += amount
+        
+        # Subtracting amount withdrawn
+        self.accounts[account_id].balance -= amount
 
+        # self.payments is dictionary where the key is the 'payment string' with the timestamp, and account_id, and amount withdrawn, and make it false before the day has passed (turn to true when it has)
+        self.payments[pay_id] = [timestamp, account_id, amount, False]
 
-# system = BankingSystemImpl()
-# system.create_account(1, 'account1')
-# system.create_account(2, 'account2')
-# system.create_account(3, 'account3')
-# system.deposit(4, 'account1', 1000), 1000
-# system.deposit(5, 'account2', 1000), 1000
-# system.deposit(6, 'account3', 1000), 1000
-# system.transfer(7, 'account2', 'account3', 100), 900
-# system.transfer(8, 'account2', 'account1', 100), 800
-# system.transfer(9, 'account3', 'account1', 100), 1000
-# expected = ['account2(200)', 'account3(100)', 'account1(0)']
-# print(system.top_spenders(10,3))
+        return pay_id
+    
+    @check_payments
+    def get_payment_status(self, timestamp: int, account_id: str, payment: str) -> str | None:
+        # Check if payment even exists
+        if payment not in self.payments:
+            return None
+        
+        # This is the list of [timestamp, account_id]
+        pay_id = self.payments[payment]
 
+        # If it even returns something
+        if not self.payments[payment]:
+            return None
 
-
-
-
-
-
-
+        # Checks if the account_id in the list even exists
+        if pay_id[1] not in self.accounts:
+            return None 
+        # Checks if the account_id matches the one in the list from the dictionary
+        if pay_id[1] != account_id:
+            return None
+        
+        # Check if the payment is processed
+        if timestamp < (pay_id[0] + 86400000):
+            return "IN_PROGRESS"
+        else:
+            # Make the deposit at the 'correct time'
+            return "CASHBACK_RECEIVED"
 
