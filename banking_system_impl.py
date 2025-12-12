@@ -1,18 +1,20 @@
 from banking_system import BankingSystem, Account
+from bisect import bisect_right, insort
 
 class BankingSystemImpl(BankingSystem):
 
     def __init__(self):
         self.accounts = {} # Make a set with the accounts. Key is account_id and it returns account value
         self.spenders = {} # Make a dictionary with spenders
-        self.payments = {} # Make dictionary for payments where the key is the transaction string, and value is list of ['timestamp', 'account', 'payment_amount']
-    
+        self.payments = {} # Make dictionary for payments where the key is the transaction string, and value is list of ['timestamp', 'account', 'payment_amount', 'whether_made']
+        self.payment_timestamps = {} # Dictionary of dictionary where key is accounts, and second dictionary, key is timestamps. {account_id : { timestamp : [balance, account_open] }} 
 
     def check_payments(func):
         """
-        Payment decorator that checks at every step
+        Payment decorator that checks and updates cashback at every method call
         """
         def wrapper(*args, **kwargs):
+            # Get self
             self = args[0]
             # [timestamp, account_id, amount, False]
             for payment in self.payments:
@@ -23,7 +25,6 @@ class BankingSystemImpl(BankingSystem):
                     cashback = int(self.payments[payment][2] * 0.02)
                     self.payments[payment][-1] = True
                     self.deposit((self.payments[payment][0] + 86400000), self.payments[payment][1], cashback)
-                    
             return func(*args, **kwargs)
         return wrapper
 
@@ -36,6 +37,12 @@ class BankingSystemImpl(BankingSystem):
         self.accounts[account_id] = Account(timestamp, account_id) # Add to the dictionary
 
         self.spenders[account_id] = 0 # Create new spenders index
+
+        # If the account_id didn't exist before
+        if account_id not in self.payment_timestamps:
+            self.payment_timestamps[account_id] = {}
+
+        self.update_time_stamps(timestamp, account_id, True)
 
         return True
 
@@ -50,8 +57,7 @@ class BankingSystemImpl(BankingSystem):
         
         account.balance += amount
 
-        # account.timestamp = timestamp # set the timestamp????
-        # TODO : Potentially add timestamp implementation
+        self.update_time_stamps(timestamp, account_id, True)
 
         return account.balance
     
@@ -81,11 +87,11 @@ class BankingSystemImpl(BankingSystem):
         else:
             self.spenders[source_account_id] += amount # Add to pre-existing index
 
-        # account.timestamp = timestamp # set the timestamp????
-        # TODO : Potentially add timestamp implementation
+        # Update time stamps
+        self.update_time_stamps(timestamp, source_account_id, True)
+        self.update_time_stamps(timestamp, target_account_id, True)
 
         return source.balance
-
 
     # Level 2
     @check_payments
@@ -122,9 +128,13 @@ class BankingSystemImpl(BankingSystem):
 
         # self.payments is dictionary where the key is the 'payment string' with the timestamp, and account_id, and amount withdrawn, and make it false before the day has passed (turn to true when it has)
         self.payments[pay_id] = [timestamp, account_id, amount, False]
+        
+        # Update timestep balance
+        self.update_time_stamps(timestamp, account_id, True)
 
         return pay_id
     
+    # Level 3
     @check_payments
     def get_payment_status(self, timestamp: int, account_id: str, payment: str) -> str | None:
         # Check if payment even exists
@@ -152,3 +162,61 @@ class BankingSystemImpl(BankingSystem):
             # Make the deposit at the 'correct time'
             return "CASHBACK_RECEIVED"
 
+    # Level 4 
+    @check_payments
+    def merge_accounts(self, timestamp: int, account_id_1: str, account_id_2: str) -> bool:
+        # Check whether the accounts exist
+        if account_id_1 not in self.accounts or account_id_2 not in self.accounts:
+            return False
+        
+        # Check whether account_id_1 is the same as account_id_2
+        if self.accounts[account_id_1] == self.accounts[account_id_2]:
+            return False
+        
+        # Merge the balances
+        self.accounts[account_id_1].balance += self.accounts[account_id_2].balance
+        
+        # Merge spending
+        self.spenders[account_id_1] += self.spenders[account_id_2]
+
+        # Iterate through the payments dictionary for the account_id and change the account_id for each relevant payment
+        for payment in self.payments:
+            if self.payments[payment][1] == account_id_2:
+                self.payments[payment][1] = account_id_1
+
+        # Merge timestamp_balance
+        self.update_time_stamps(timestamp, account_id_1, True)
+        self.update_time_stamps(timestamp, account_id_2, False)
+
+        # Delete the account_id_2 values from self.accounts and spending
+        del self.accounts[account_id_2]
+        del self.spenders[account_id_2]
+
+        return True
+
+    # Level 4
+    @check_payments
+    def get_balance(self, timestamp: int, account_id: str, time_at: int) -> int | None:
+        # Check if account even exists
+        if account_id not in self.payment_timestamps: # If the account doesn't exist within the dictionary
+            return None
+
+        # binary search implementation:
+        times = list(self.payment_timestamps[account_id].keys())   # e.g. [3, 8, 10, 13, ...]
+        if not times:
+            return None
+        
+        # binary search part
+        i = bisect_right(times, time_at) - 1
+        if i < 0:
+            return None  # all timestamps are after time_at
+
+        ts = times[i]
+        if self.payment_timestamps[account_id][ts][1] == False:
+            return None
+        else:
+            return self.payment_timestamps[account_id][ts][0]
+
+    def update_time_stamps(self, timestamp: int, account_id: str, account_open: bool):
+        # Updates the time stamps
+        self.payment_timestamps[account_id][timestamp] = [self.accounts[account_id].balance, account_open]

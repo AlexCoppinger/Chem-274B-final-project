@@ -8,7 +8,7 @@ class Account():
         self.id = account_id # Add name for account
         self.timestamp = timestamp # Add the timestamp
         self.balance = 0 # Initialize with 0
-        self.highest_transaction = [] # Highest transaction 
+        self.timestamp_balance = {} # balance at different timestamps
 
 class BankingSystem(ABC):
 
